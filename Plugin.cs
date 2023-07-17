@@ -35,7 +35,7 @@ namespace RedDotTweaker
             string color = "1. Color";
             string size = "1. Size";
 
-            AdjustmentSpeed = Config.Bind<float>(bright, "Brightness Adjustment Steps", 0.95f, new ConfigDescription("Lower = Faster.", new AcceptableValueRange<float>(0.01f, 0.99f), new ConfigurationManagerAttributes { Order = 40 }));
+            AdjustmentSpeed = Config.Bind<float>(bright, "Brightness Adjustment Steps", 0.95f, new ConfigDescription("Lower = Faster.", new AcceptableValueRange<float>(0.01f, 0.999f), new ConfigurationManagerAttributes { Order = 40 }));
             RaiseBrightnessKey = Config.Bind(bright, "Increase Brightness", new KeyboardShortcut(KeyCode.KeypadPlus), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 30 }));
             LowerBrightnessKey = Config.Bind(bright, "Lower Brightness", new KeyboardShortcut(KeyCode.KeypadMinus), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 20 }));
             BrightnessLimit = Config.Bind<float>(bright, "Brightness Limit", 20f, new ConfigDescription("Lower = Faster.", new AcceptableValueRange<float>(0.1f, 100f), new ConfigurationManagerAttributes { Order = 1 }));
@@ -53,15 +53,33 @@ namespace RedDotTweaker
         public void HandleBrightnessAdjustment(CollimatorSight sight, Material mat, float adjustment)
         {
             Plugin.AdjustmentValue = Mathf.Clamp(Plugin.AdjustmentValue * adjustment, 0.1f, Plugin.BrightnessLimit.Value);
-            UpdateColor(sight, mat);
+            UpdateColor(sight, mat, adjustment);
         }
 
-        public void UpdateColor(CollimatorSight sight, Material mat)
+        public void UpdateColor(CollimatorSight sight, Material mat, float adjustment)
         {
             Color changedBaseColor = new Color(r.Value * Plugin.AdjustmentValue, g.Value * Plugin.AdjustmentValue, b.Value * Plugin.AdjustmentValue, 1 * Plugin.AdjustmentValue);
-            Color adjustedBaseColor = new Color(mat.color.r * Plugin.AdjustmentValue, mat.color.g * Plugin.AdjustmentValue, mat.color.b * Plugin.AdjustmentValue, mat.color.a * Plugin.AdjustmentValue);
+            Color adjustedBaseColor = UpdateBaseColor(sight, mat, adjustment);
+
             mat.color = EnableColorChange.Value ? changedBaseColor : adjustedBaseColor;
             CurrentColor = mat.color;
+        }
+
+        public Color UpdateBaseColor(CollimatorSight sight, Material mat, float adjustment) 
+        {
+            if (mat.color.r > mat.color.g && mat.color.r > mat.color.b) 
+            {
+                return new Color(mat.color.r * adjustment, mat.color.g, mat.color.b, 1f * Plugin.AdjustmentValue);
+            }
+            if (mat.color.g > mat.color.r && mat.color.g > mat.color.b)
+            {
+                return new Color(mat.color.r, mat.color.g * adjustment, mat.color.b, 1f * Plugin.AdjustmentValue);
+            }
+            if (mat.color.b > mat.color.r && mat.color.b > mat.color.g)
+            {
+                return new Color(mat.color.r, mat.color.g, mat.color.b * adjustment, 1f * Plugin.AdjustmentValue);
+            }
+            return mat.color;
         }
 
         public void HandleSizeAdjustment(CollimatorSight sight, Material mat)
@@ -88,15 +106,15 @@ namespace RedDotTweaker
             Vector3 currentBaseColor = new Vector3(r.Value, g.Value, b.Value);
             if (EnableColorChange.Value && (LastBaseColor != currentBaseColor || sightChanged)) 
             {
-                UpdateColor(sight, mat);
+                UpdateColor(sight, mat, Plugin.AdjustmentSpeed.Value);
             }
             LastBaseColor = currentBaseColor;
             HandleSizeAdjustment(sight, mat);
 
+            Logger.LogWarning(mat.color);
+
             sight.CollimatorMeshRenderer.enabled = false;
             sight.CollimatorMeshRenderer.enabled = true;
-
-            Logger.LogWarning(mat.color);
         }
     }
 }
