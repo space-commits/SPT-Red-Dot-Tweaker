@@ -69,15 +69,24 @@ namespace RedDotTweaker
         {
             if (mat.color.r > mat.color.g && mat.color.r > mat.color.b) 
             {
-                return new Color(mat.color.r * adjustment, mat.color.g, mat.color.b, 1f * Plugin.AdjustmentValue);
+                if (mat.color.r * adjustment > 0.2f && mat.color.r * adjustment > mat.color.g && mat.color.r * adjustment > mat.color.b)
+                {
+                    return new Color(mat.color.r * adjustment, mat.color.g, mat.color.b, mat.color.a * adjustment);
+                }
             }
             if (mat.color.g > mat.color.r && mat.color.g > mat.color.b)
             {
-                return new Color(mat.color.r, mat.color.g * adjustment, mat.color.b, 1f * Plugin.AdjustmentValue);
+                if (mat.color.g * adjustment > 0.2f && mat.color.g * adjustment > mat.color.r && mat.color.g * adjustment > mat.color.b)
+                {
+                    return new Color(mat.color.r, mat.color.g * adjustment, mat.color.b, mat.color.a * adjustment);
+                }
             }
-            if (mat.color.b > mat.color.r && mat.color.b > mat.color.g)
+            if (mat.color.b > 0.2f && mat.color.b > mat.color.r && mat.color.b > mat.color.g)
             {
-                return new Color(mat.color.r, mat.color.g, mat.color.b * adjustment, 1f * Plugin.AdjustmentValue);
+                if (mat.color.b * adjustment * adjustment > mat.color.r && mat.color.b * adjustment > mat.color.g)
+                {
+                    return new Color(mat.color.r, mat.color.g, mat.color.b * adjustment, mat.color.a * adjustment);
+                }
             }
             return mat.color;
         }
@@ -90,14 +99,19 @@ namespace RedDotTweaker
 
         private void colmUpdate(CollimatorSight sight)
         {
+            if (!sight.isActiveAndEnabled || sight == null || sight.CollimatorMeshRenderer == null || sight.CollimatorMeshRenderer.material == null) 
+            {
+                return;
+            }
+   
             Material mat = sight.CollimatorMeshRenderer.material;
 
-            if (Input.GetKey(RaiseBrightnessKey.Value.MainKey))
+            if (Input.GetKey(RaiseBrightnessKey.Value.MainKey) && mat.color.a < BrightnessLimit.Value)
             {
                 float brightnessAdjustment = 1f + (1f - Plugin.AdjustmentSpeed.Value);
                 HandleBrightnessAdjustment(sight, mat, brightnessAdjustment);
             }
-            if (Input.GetKey(LowerBrightnessKey.Value.MainKey))
+            if (Input.GetKey(LowerBrightnessKey.Value.MainKey) && mat.color.a > 0.1f)
             {
                 HandleBrightnessAdjustment(sight, mat, Plugin.AdjustmentSpeed.Value);
             }
@@ -110,8 +124,6 @@ namespace RedDotTweaker
             }
             LastBaseColor = currentBaseColor;
             HandleSizeAdjustment(sight, mat);
-
-            Logger.LogWarning(mat.color);
 
             sight.CollimatorMeshRenderer.enabled = false;
             sight.CollimatorMeshRenderer.enabled = true;
