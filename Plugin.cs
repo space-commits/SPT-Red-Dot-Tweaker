@@ -1,7 +1,17 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
+using Comfort.Common;
 using EFT;
+using EFT.InputSystem;
+using EFT.InventoryLogic;
+using HarmonyLib;
+using SPT.Reflection.Patching;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using UnityEngine;
+using static EFT.Player;
 
 namespace RedDotTweaker
 {
@@ -18,16 +28,13 @@ namespace RedDotTweaker
         public static ConfigEntry<float> b { get; set; }
 
         public static ConfigEntry<float> Scale { get; set; }
-
         public static ConfigEntry<float> BrightnessLimit { get; set; }
 
-        public static Player player;
-
         public static float AdjustmentValue = 1f;
-
         public static Vector3 LastBaseColor = Vector3.zero;
-
         public static Color CurrentColor = Color.white;
+
+        private static CollimatorSight _collimatorSight;
 
         private void Awake()
         {
@@ -40,14 +47,46 @@ namespace RedDotTweaker
             LowerBrightnessKey = Config.Bind(bright, "Lower Brightness", new KeyboardShortcut(KeyCode.KeypadMinus), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 20 }));
             BrightnessLimit = Config.Bind<float>(bright, "Brightness Limit", 20f, new ConfigDescription("Lower = Faster.", new AcceptableValueRange<float>(0.1f, 100f), new ConfigurationManagerAttributes { Order = 1 }));
 
-            EnableColorChange = Config.Bind<bool>(color, "Enable Color Change", true, new ConfigDescription("If Enabled All Reddots Will Use This Color", null, new ConfigurationManagerAttributes { Order = 5 }));
+            EnableColorChange = Config.Bind<bool>(color, "Enable Color Change", false, new ConfigDescription("If Enabled All Reddots Will Use This Color", null, new ConfigurationManagerAttributes { Order = 5 }));
             r = Config.Bind<float>(color, "R", 1f, new ConfigDescription("", new AcceptableValueRange<float>(0.01f, 1f), new ConfigurationManagerAttributes { Order = 4 }));
             g = Config.Bind<float>(color, "G", 1f, new ConfigDescription("", new AcceptableValueRange<float>(0.01f, 1f), new ConfigurationManagerAttributes { Order = 3 }));
             b = Config.Bind<float>(color, "B", 1f, new ConfigDescription("", new AcceptableValueRange<float>(0.01f, 1f), new ConfigurationManagerAttributes { Order = 2 }));
 
             Scale = Config.Bind<float>(size, "Dot Scale", 1f, new ConfigDescription("", new AcceptableValueRange<float>(0.1f, 2f), new ConfigurationManagerAttributes { Order = 2 }));
 
-            CollimatorSight.OnCollimatorUpdated += colmUpdate;
+            CollimatorSight.OnCollimatorUpdated += CollimatorUpdate;
+        }
+
+
+        void Update() 
+        {
+            Material mat = _collimatorSight?.CollimatorMeshRenderer?.material;
+            if (_collimatorSight == null || _collimatorSight.CollimatorMeshRenderer == null || mat == null) //|| !_collimatorSight.isActiveAndEnabled 
+            {
+                return;
+            }
+
+            if (Input.GetKey(RaiseBrightnessKey.Value.MainKey) && mat.color.a < BrightnessLimit.Value)
+            {
+                float brightnessAdjustment = 1f + (1f - Plugin.AdjustmentSpeed.Value);
+                HandleBrightnessAdjustment(_collimatorSight, mat, brightnessAdjustment);
+            }
+            if (Input.GetKey(LowerBrightnessKey.Value.MainKey) && mat.color.a > 0.1f)
+            {
+                HandleBrightnessAdjustment(_collimatorSight, mat, Plugin.AdjustmentSpeed.Value);
+            }
+
+            bool sightChanged = mat.color != CurrentColor;
+            Vector3 currentBaseColor = new Vector3(r.Value, g.Value, b.Value);
+            if (EnableColorChange.Value && (LastBaseColor != currentBaseColor || sightChanged))
+            {
+                UpdateColor(_collimatorSight, mat, Plugin.AdjustmentSpeed.Value);
+            }
+            LastBaseColor = currentBaseColor;
+            HandleSizeAdjustment(_collimatorSight, mat);
+
+            _collimatorSight.CollimatorMeshRenderer.enabled = false;
+            _collimatorSight.CollimatorMeshRenderer.enabled = true;
         }
 
         public void HandleBrightnessAdjustment(CollimatorSight sight, Material mat, float adjustment)
@@ -97,36 +136,9 @@ namespace RedDotTweaker
             sight.transform.localScale = scale;
         }
 
-        private void colmUpdate(CollimatorSight sight)
+        private void CollimatorUpdate(CollimatorSight sight)
         {
-            if (!sight.isActiveAndEnabled || sight == null || sight.CollimatorMeshRenderer == null || sight.CollimatorMeshRenderer.material == null) 
-            {
-                return;
-            }
-   
-            Material mat = sight.CollimatorMeshRenderer.material;
-
-            if (Input.GetKey(RaiseBrightnessKey.Value.MainKey) && mat.color.a < BrightnessLimit.Value)
-            {
-                float brightnessAdjustment = 1f + (1f - Plugin.AdjustmentSpeed.Value);
-                HandleBrightnessAdjustment(sight, mat, brightnessAdjustment);
-            }
-            if (Input.GetKey(LowerBrightnessKey.Value.MainKey) && mat.color.a > 0.1f)
-            {
-                HandleBrightnessAdjustment(sight, mat, Plugin.AdjustmentSpeed.Value);
-            }
-
-            bool sightChanged = mat.color != CurrentColor;   
-            Vector3 currentBaseColor = new Vector3(r.Value, g.Value, b.Value);
-            if (EnableColorChange.Value && (LastBaseColor != currentBaseColor || sightChanged)) 
-            {
-                UpdateColor(sight, mat, Plugin.AdjustmentSpeed.Value);
-            }
-            LastBaseColor = currentBaseColor;
-            HandleSizeAdjustment(sight, mat);
-
-            sight.CollimatorMeshRenderer.enabled = false;
-            sight.CollimatorMeshRenderer.enabled = true;
+            if (sight != null) _collimatorSight = sight;
         }
     }
 }
