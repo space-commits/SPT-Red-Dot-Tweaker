@@ -60,11 +60,13 @@ namespace RedDotTweaker
 
         void Update() 
         {
-            Material mat = _collimatorSight?.CollimatorMeshRenderer?.material;
-            if (_collimatorSight == null || _collimatorSight.CollimatorMeshRenderer == null || mat == null) //|| !_collimatorSight.isActiveAndEnabled 
+
+            if (_collimatorSight == null || !_collimatorSight.isActiveAndEnabled || _collimatorSight.CollimatorMeshRenderer == null || _collimatorSight?.CollimatorMeshRenderer?.material == null) 
             {
                 return;
             }
+
+            Material mat = _collimatorSight.CollimatorMeshRenderer.material;
 
             if (Input.GetKey(RaiseBrightnessKey.Value.MainKey) && mat.color.a < BrightnessLimit.Value)
             {
